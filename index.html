@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>厨房库存管理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        // 配置Tailwind自定义颜色
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4F46E5',
+                        secondary: '#EC4899',
+                        neutral: '#F3F4F6',
+                        warning: '#F59E0B',
+                        danger: '#EF4444',
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .card-hover {
+                @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
+            }
+            .label-print {
+                width: 8cm;
+                height: 4cm;
+                padding: 0.5cm;
+                border: 1px dashed #ccc;
+                page-break-after: always;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+            }
+            .label-item {
+                display: flex;
+                justify-content: space-between;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-50 font-sans">
+    <header class="bg-primary text-white shadow-lg">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold">厨房库存管理</h1>
+                    <p class="text-primary-200 mt-1">轻松记录和管理您的厨房用品</p>
+                </div>
+                <div class="mt-4 md:mt-0 text-right">
+                    <p id="currentDateTime" class="text-lg font-medium"></p>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <div class="flex justify-between items-center mb-8 flex-wrap gap-4">
+            <h2 class="text-2xl font-bold text-gray-800">当前库存</h2>
+            <div class="flex gap-3">
+                <button id="exportBtn"
+                    class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow-md transition duration-300"
+                >
+                    <i class="fa fa-download mr-2"></i>导出数据
+                </button>
+                <button id="importBtn"
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-md transition duration-300"
+                >
+                    <i class="fa fa-upload mr-2"></i>导入数据
+                </button>
+                <input type="file" id="fileInput" class="hidden" accept=".json">
+                <button id="printLabelsBtn"
+                    class="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-lg shadow-md transition duration-300"
+                >
+                    <i class="fa fa-print mr-2"></i>打印标签
+                </button>
+                <button id="addItemBtn"
+                    class="bg-secondary hover:bg-secondary/90 text-white px-4 py-2 rounded-lg shadow-md transition duration-300"
+                >
+                    <i class="fa fa-plus mr-2"></i>添加物品
+                </button>
+            </div>
+        </div>
+
+        <!-- 添加物品表单 -->
+        <div id="addItemForm" class="hidden bg-white p-6 rounded-xl shadow-md mb-8 border border-gray-100">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">添加库存物品</h3>
+            <form id="itemForm" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">物品名称 *</label>
+                        <input
+                            type="text"
+                            id="name"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">数量 *</label>
+                        <input
+                            type="number"
+                            id="quantity"
+                            min="1"
+                            value="1"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">单位</label>
+                        <select
+                            id="unit"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                        >
+                            <option value="个">个</option>
+                            <option value="克">克</option>
+                            <option value="千克">千克</option>
+                            <option value="毫升">毫升</option>
+                            <option value="升">升</option>
+                            <option value="斤">斤</option>
+                            <option value="两">两</option>
+                            <option value="片">片</option>
+                            <option value="根">根</option>
+                            <option value="瓶">瓶</option>
+                            <option value="袋">袋</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">分类</label>
+                        <select
+                            id="category"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                        >
+                            <option value="原材料">原材料</option>
+                            <option value="半成品">半成品</option>
+                            <option value="成品">成品</option>
+                            <option value="调料">调料</option>
+                            <option value="厨具">厨具</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">过期日期</label>
+                    <input
+                        type="date"
+                        id="expiryDate"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                    />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+                    <textarea
+                        id="notes"
+                        rows="3"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                    ></textarea>
+                </div>
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button
+                        type="button"
+                        id="cancelBtn"
+                        class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                    >
+                        取消
+                    </button>
+                    <button
+                        type="submit"
+                        class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 shadow-sm"
+                    >
+                        添加物品
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- 库存列表 -->
+        <div id="inventoryList">
+            <div class="text-center py-12 bg-white rounded-lg shadow-md" id="emptyState">
+                <p class="text-gray-500 text-lg">暂无库存记录</p>
+                <button
+                    id="addFirstItemBtn"
+                    class="mt-4 bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg shadow-sm"
+                >
+                    <i class="fa fa-plus mr-2"></i>添加第一个物品
+                </button>
+            </div>
+            <div id="itemsGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 hidden"></div>
+        </div>
+    </main>
+
+    <!-- 打印模板 (默认隐藏) -->
+    <div id="printTemplate" class="hidden">
+        <div id="labelsContainer"></div>
+    </div>
+
+    <footer class="bg-gray-800 text-white py-6 mt-12">
+        <div class="container mx-auto px-4 text-center">
+            <p>© <span id="currentYear"></span> 厨房库存管理APP</p>
+            <p class="text-gray-400 text-sm mt-1">多设备同步请使用导出/导入功能</p>
+        </div>
+    </footer>
+
+    <script>
+        // 设置当前年份
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+        // 更新当前日期和时间
+        function updateDateTime() {
+            const now = new Date();
+            const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+            document.getElementById('currentDateTime').textContent = now.toLocaleDateString('zh-CN', options);
+        }
+
+        // 初始更新并设置定时器
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+
+        // DOM元素
+        const addItemBtn = document.getElementById('addItemBtn');
+        const addFirstItemBtn = document.getElementById('addFirstItemBtn');
+        const addItemForm = document.getElementById('addItemForm');
+        const itemForm = document.getElementById('itemForm');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const emptyState = document.getElementById('emptyState');
+        const itemsGrid = document.getElementById('itemsGrid');
+        const printLabelsBtn = document.getElementById('printLabelsBtn');
+        const printTemplate = document.getElementById('printTemplate');
+        const labelsContainer = document.getElementById('labelsContainer');
+        const exportBtn = document.getElementById('exportBtn');
+        const importBtn = document.getElementById('importBtn');
+        const fileInput = document.getElementById('fileInput');
+
+        // 从localStorage加载库存数据
+        let inventory = JSON.parse(localStorage.getItem('kitchenInventory')) || [];
+
+        // 计算过期天数
+        function calculateExpiryDays(expiryDate) {
+            if (!expiryDate) return null;
+            const today = new Date();
+            const expiry = new Date(expiryDate);
+            const diffTime = expiry - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays;
+        }
+
+        // 格式化日期为"YYYY 年 MM月DD日"
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+            return `${year} ${month}月${day}日`;
+        }
+
+        // 格式化日期为"YYYY MM月DD日"
+        function formatDateForLabel(dateString) {
+            const date = new Date(dateString);
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+            return `${year} ${month}月${day}日`;
+        }
+
+        // 渲染库存列表
+        function renderInventory() {
+            if (inventory.length === 0) {
+                emptyState.classList.remove('hidden');
+                itemsGrid.classList.add('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                itemsGrid.classList.remove('hidden');
+                itemsGrid.innerHTML = '';
+
+                inventory.forEach(item => {
+                    const formattedDate = new Date(item.addedDate).toLocaleDateString();
+                    const expiryDays = calculateExpiryDays(item.expiryDate);
+                    let expiryClass = '';
+                    let expiryText = '';
+
+                    if (expiryDays !== null) {
+                        if (expiryDays <= 0) {
+                            expiryClass = 'text-danger font-medium';
+                            expiryText = '已过期';
+                        } else if (expiryDays <= 3) {
+                            expiryClass = 'text-danger font-medium';
+                            expiryText = `仅剩 ${expiryDays} 天过期`;
+                        } else if (expiryDays <= 7) {
+                            expiryClass = 'text-warning font-medium';
+                            expiryText = `剩余 ${expiryDays} 天过期`;
+                        } else {
+                            expiryClass = 'text-gray-500';
+                            expiryText = `剩余 ${expiryDays} 天过期`;
+                        }
+                    }
+
+                    const itemCard = document.createElement('div');
+                    itemCard.className = 'bg-white rounded-xl shadow-md overflow-hidden card-hover border border-gray-100';
+                    itemCard.innerHTML = `
+                        <div class="p-5">
+                            <div class="flex justify-between items-start mb-3">
+                                <h3 class="text-xl font-bold text-gray-800">${item.name}</h3>
+                                <span class="bg-primary/10 text-primary px-2 py-1 rounded-full text-sm font-medium">
+                                    ${item.category || '未分类'}
+                                </span>
+                            </div>
+
+                            <div class="space-y-2 mb-4">
+                                <p class="text-gray-600"><span class="font-medium">数量:</span> ${item.quantity} ${item.unit || '个'}</p>
+                                <p class="text-gray-500 text-sm"><span class="font-medium">添加日期:</span> ${formattedDate}</p>
+                                ${item.expiryDate ? `
+                                <p class=
+                                <span class="${expiryClass} text-sm"><span class="font-medium">过期日期:</span> ${item.expiryDate} (${expiryText})</p>` : ''}
+                                ${item.notes ? `<p class="text-gray-600 text-sm mt-2 bg-gray-50 p-2 rounded-lg">${item.notes}</p>` : ''}
+                            </div>
+
+                            <div class="flex space-x-2">
+                                <button onclick="removeItem(${item.id}, 1)"
+                                    class="flex-1 bg-red-100 hover:bg-red-200 text-red-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                                >
+                                    <i class="fa fa-minus mr-1"></i> 出库1个
+                                </button>
+                                <button onclick="removeItem(${item.id}, ${item.quantity})"
+                                    class="flex-1 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                                >
+                                    <i class="fa fa-trash mr-1"></i> 全部出库
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    itemsGrid.appendChild(itemCard);
+                });
+            }
+        }
+
+        // 添加新物品
+        function addItem(e) {
+            e.preventDefault();
+            const name = document.getElementById('name').value.trim();
+            if (!name) {
+                alert('请输入物品名称');
+                return;
+            }
+
+            const newItem = {
+                id: Date.now(),
+                name: name,
+                quantity: parseInt(document.getElementById('quantity').value),
+                unit: document.getElementById('unit').value,
+                category: document.getElementById('category').value,
+                expiryDate: document.getElementById('expiryDate').value,
+                notes: document.getElementById('notes').value,
+                addedDate: new Date().toISOString()
+            };
+
+            inventory.push(newItem);
+            localStorage.setItem('kitchenInventory', JSON.stringify(inventory));
+            itemForm.reset();
+            addItemForm.classList.add('hidden');
+            renderInventory();
+        }
+
+        // 出库操作
+        window.removeItem = function(id, quantity) {
+            inventory = inventory.map(item => {
+                if (item.id === id) {
+                    const newQuantity = item.quantity - quantity;
+                    if (newQuantity <= 0) {
+                        return null;
+                    }
+                    return {...item, quantity: newQuantity};
+                }
+                return item;
+            }).filter(Boolean);
+
+            localStorage.setItem('kitchenInventory', JSON.stringify(inventory));
+            renderInventory();
+        };
+
+        // 准备标签打印
+        function prepareLabelsForPrinting() {
+            if (inventory.length === 0) {
+                alert('没有库存物品可打印标签');
+                return;
+            }
+
+            labelsContainer.innerHTML = '';
+
+            inventory.forEach(item => {
+                const label = document.createElement('div');
+                label.className = 'label-print';
+                const today = new Date().toLocaleDateString();
+                const expiryDays = calculateExpiryDays(item.expiryDate);
+                let expiryStatus = '';
+
+                if (expiryDays !== null) {
+                    if (expiryDays <= 0) {
+                        expiryStatus = '已过期';
+                    } else {
+                        expiryStatus = `剩余${expiryDays}天过期`;
+                    }
+                }
+
+                label.innerHTML = `
+                    <div class="text-center mb-2">
+                        <h3 class="font-bold text-lg">${item.name}</h3>
+                    </div>
+                    <div class="space-y-1 text-sm">
+                        <p>数量: ${item.quantity} ${item.unit || '个'}</p>
+                        <p>分类: ${item.category || '未分类'}</p>
+                        <p>添加日期: ${new Date(item.addedDate).toLocaleDateString()}</p>
+                        ${item.expiryDate ? `<p>过期日期: ${item.expiryDate}</p>` : ''}
+                        ${item.expiryDate ? `<p class="font-medium ${expiryDays <= 0 ? 'text-red-600' : expiryDays <= 3 ? 'text-red-600' : expiryDays <= 7 ? 'text-yellow-600' : ''}">${expiryStatus}</p>` : ''}
+                        <p>打印日期: ${today}</p>
+                    </div>
+                `;
+                labelsContainer.appendChild(label);
+            });
+
+            // 打印标签
+            window.print();
+        }
+
+        // 事件监听
+        addItemBtn.addEventListener('click', () => {
+            addItemForm.classList.toggle('hidden');
+        });
+
+        addFirstItemBtn.addEventListener('click', () => {
+            addItemForm.classList.remove('hidden');
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            itemForm.reset();
+            addItemForm.classList.add('hidden');
+        });
+
+        itemForm.addEventListener('submit', addItem);
+
+        printLabelsBtn.addEventListener('click', prepareLabelsForPrinting);
+
+        // 初始渲染
+        renderInventory();
+    </script>
+</body>
+</html>
